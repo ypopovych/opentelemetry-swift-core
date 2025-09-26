@@ -19,13 +19,19 @@ public class LoggerSdk: OpenTelemetryApi.Logger {
     self.withTraceContext = withTraceContext
   }
 
+  @available(*, deprecated, message: "Use logRecordBuilder() and setEventName(_:) instead")
   public func eventBuilder(name: String) -> OpenTelemetryApi.EventBuilder {
-    guard let eventDomain else {
-      OpenTelemetry.instance.feedbackHandler?("Events cannot be emitted from Logger without an event domain. Use `LoggerBuilder.setEventDomain(_ domain: String) when obtaining a Logger.")
-      return DefaultLoggerProvider.instance.loggerBuilder(instrumentationScopeName: "unused").setEventDomain("unused").setAttributes(["event.domain": AttributeValue.string("unused"), "event.name": AttributeValue.string(name)]).build().eventBuilder(name: "unused")
+    var builder = LogRecordBuilderSdk(sharedState: sharedState, instrumentationScope: instrumentationScope, includeSpanContext: true)
+      .setEventName(name)
+    
+    // Backward compatibility: Add deprecated attributes
+    var attributes: [String: AttributeValue] = ["event.name": AttributeValue.string(name)]
+    if let eventDomain {
+      attributes["event.domain"] = AttributeValue.string(eventDomain)
     }
-    return LogRecordBuilderSdk(sharedState: sharedState, instrumentationScope: instrumentationScope, includeSpanContext: true).setAttributes(["event.domain": AttributeValue.string(eventDomain),
-                                                                                                                                              "event.name": AttributeValue.string(name)])
+    builder = builder.setAttributes(attributes)
+    
+    return builder
   }
 
   public func logRecordBuilder() -> OpenTelemetryApi.LogRecordBuilder {
